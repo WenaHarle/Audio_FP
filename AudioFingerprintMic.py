@@ -4,7 +4,8 @@ from scipy.signal import stft
 import scipy.ndimage as ndi
 import hashlib
 import json
-import matplotlib.pyplot as plt
+import serial
+import time
 import sounddevice as sd
 
 def load_audio(file_path):
@@ -18,8 +19,8 @@ def generate_spectrogram(samples, sample_rate):
     f, t, Zxx = stft(samples, fs=sample_rate, nperseg=1024)
     return f, t, np.abs(Zxx)
 
-def extract_peaks(spectrogram, threshold=0.5):
-    peaks = ndi.maximum_filter(spectrogram, size=20) == spectrogram
+def extract_peaks(spectrogram, threshold=0.8):
+    peaks = ndi.maximum_filter(spectrogram, size=30) == spectrogram
     peaks &= spectrogram > np.mean(spectrogram) * threshold
     return np.where(peaks)
 
@@ -50,7 +51,7 @@ def record_audio(duration=2, sample_rate=44100):
     samples = audio.flatten()
     return samples, sample_rate
 
-def check_audio_segment_match(samples, sample_rate, original_hashes_path, threshold=0.01):
+def check_audio_segment_match(samples, sample_rate, original_hashes_path, threshold=0.004):
     original_hashes = load_hashes_from_json(original_hashes_path)
     original_hashes_set = set([h[0] for h in original_hashes])
     
@@ -64,17 +65,35 @@ def check_audio_segment_match(samples, sample_rate, original_hashes_path, thresh
     match_ratio = len(matches) / len(new_hashes_set)
     return match_ratio >= threshold, match_ratio
 
+def send_serial(data):
+    time.sleep(0.01)
+    ser.write(data.encode())
+
 if __name__ == "__main__":
-    # Record a 2-second audio segment from the microphone
-    recorded_samples, recorded_sample_rate = record_audio()
-    
-    # Path to the original hashes JSON file
-    original_hashes_path = "DataBase/Oleg.json"
-    
-    # Check if the recorded audio segment matches any part of the original song
-    is_match, match_ratio = check_audio_segment_match(recorded_samples, recorded_sample_rate, original_hashes_path)
-    
-    if is_match:
-        print(f"The audio segment matches part of the original song with a match ratio of {match_ratio:.8f}.")
-    else:
-        print(f"The audio segment does not match any part of the original song. Match ratio: {match_ratio:.8f}.")
+    try:
+        # Open serial port
+        ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
+        
+        # Path to the original hashes JSON file
+        original_hashes_path = "DataBase/Oleg2.json"
+        
+        # Loop to continuously record and check audio
+        while True:
+            recorded_samples, recorded_sample_rate = record_audio()
+            
+            # Check if the recorded audio segment matches any part of the original song
+            is_match, match_ratio = check_audio_segment_match(recorded_samples, recorded_sample_rate, original_hashes_path)
+            
+            if is_match:
+                print(f"The audio segment matches part of the original song with a match ratio of {match_ratio:.8f}.")
+                send_serial("1")
+            else:
+                print(f"The audio segment does not match any part of the original song. Match ratio: {match_ratio:.8f}.")
+                send_serial("0")
+    except KeyboardInterrupt:
+        print("Program interrupted by user.")
+    finally:
+        # Close the serial port
+        if ser.is_open:
+            ser.close()
+        print("Serial port closed.")

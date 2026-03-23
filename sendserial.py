@@ -1,23 +1,12 @@
-import serial
-import time
-import random
+from pathlib import Path
+import sys
 
-def send_serial_data():
-    # Open the serial port
-    ser = serial.Serial('/dev/ttyUSB0', 115200, timeout=1)
-    
-    # Give some time to establish the connection
-    time.sleep(0.01)
-    
-    # Data to be sent
-    data = "0"
-    
-    # Send the data
-    ser.write(data.encode())
-    
-    # Close the serial port
 
-    ser.close()
+ROOT = Path(__file__).resolve().parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from audio_fp.serial_smoketest import main
+
 
 if __name__ == "__main__":
-    send_serial_data()
+    main()

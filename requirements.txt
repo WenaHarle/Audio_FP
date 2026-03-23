@@ -3,3 +3,4 @@ pydub
 scipy
 matplotlib
 sounddevice
+pyserial
